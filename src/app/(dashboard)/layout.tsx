@@ -14,7 +14,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="min-h-[100dvh] flex bg-[#F4F7FC]">
+      <div className='min-h-dvh flex bg-[#F4F7FC]'>
         {/* Sidebar */}
         <Sidebar
           mobileOpen={mobileMenuOpen}
@@ -22,14 +22,12 @@ export default function DashboardLayout({
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
+        <main className='flex-1 flex flex-col min-h-screen overflow-x-hidden'>
           {/* Top Header */}
           <TopHeader onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
           {/* Page Content */}
-          <div className="flex-1 p-4 md:p-6 lg:px-10 pb-10">
-            {children}
-          </div>
+          <div className='flex-1 p-4 md:p-6 lg:px-10 pb-10'>{children}</div>
         </main>
       </div>
     </ToastProvider>
