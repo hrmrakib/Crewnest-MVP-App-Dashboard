@@ -25,7 +25,11 @@ const PUBLIC_AUTH_ENDPOINTS = [
 
 // Compute base URL ensuring /api/ prefix for backend endpoints
 const getBaseUrl = (): string => {
-  const envUrl = (process.env.NEXT_PUBLIC_API_URL || "http://187.6.167.239/").trim();
+  // In the browser, use the internal Next.js proxy /api/ to prevent CORS blocks
+  if (typeof window !== "undefined") {
+    return "/api/";
+  }
+  const envUrl = (process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://187.6.167.239/").trim();
   if (envUrl.startsWith("/")) {
     return envUrl.endsWith("/") ? envUrl : `${envUrl}/`;
   }
@@ -52,7 +56,7 @@ const rawBaseQuery = fetchBaseQuery({
       token = localStorage.getItem("access_token");
     }
 
-    if (token) {
+    if (token && token !== "null" && token !== "undefined" && token.trim() !== "") {
       headers.set("Authorization", `Bearer ${token}`);
     } else {
       headers.delete("Authorization");

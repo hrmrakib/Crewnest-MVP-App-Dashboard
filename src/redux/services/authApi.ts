@@ -15,6 +15,7 @@ import type {
 } from "../types/auth.types";
 
 export const authApi = apiSlice.injectEndpoints({
+  overrideExisting: true,
   endpoints: (builder) => ({
     login: builder.mutation<LoginResponse, LoginRequest>({
       async queryFn(credentials, _queryApi, _extraOptions, fetchWithBQ) {

@@ -11,6 +11,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+import type { GrowthData } from "@/redux/types/api.types";
+
 const FALLBACK_MONTHLY = [
   { name: "Jan", uv: 280 }, { name: "Feb", uv: 750 }, { name: "Mar", uv: 280 },
   { name: "Apr", uv: 750 }, { name: "May", uv: 1100 }, { name: "Jun", uv: 1000 },
@@ -24,28 +26,32 @@ const FALLBACK_YEARLY = [
 ];
 
 interface UserGrowthChartProps {
-  growthData?: string;
+  growthData?: GrowthData | string;
+  isLoading?: boolean;
 }
 
-export default function UserGrowthChart({ growthData }: UserGrowthChartProps) {
+export default function UserGrowthChart({ growthData, isLoading }: UserGrowthChartProps) {
   const [period, setPeriod] = useState<"Monthly" | "Yearly">("Monthly");
 
-  const parsedGrowth = useMemo(() => {
+  const parsedGrowth: GrowthData | null = useMemo(() => {
     if (!growthData) return null;
-    try { return JSON.parse(growthData); } catch { return null; }
+    if (typeof growthData === "string") {
+      try { return JSON.parse(growthData); } catch { return null; }
+    }
+    return growthData;
   }, [growthData]);
 
-  const monthlyData = parsedGrowth?.monthly
-    ? parsedGrowth.monthly.map((item: Record<string, unknown>) => ({
-        name: item.month ?? item.name,
-        uv: Number(item.count ?? item.uv ?? 0),
+  const monthlyData = parsedGrowth?.monthly && parsedGrowth.monthly.length > 0
+    ? parsedGrowth.monthly.map((item) => ({
+        name: item.month ?? (item as any).name,
+        uv: Number(item.count ?? (item as any).uv ?? 0),
       }))
     : FALLBACK_MONTHLY;
 
-  const yearlyData = parsedGrowth?.yearly
-    ? parsedGrowth.yearly.map((item: Record<string, unknown>) => ({
-        name: item.year ?? item.name,
-        uv: Number(item.count ?? item.uv ?? 0),
+  const yearlyData = parsedGrowth?.yearly && parsedGrowth.yearly.length > 0
+    ? parsedGrowth.yearly.map((item) => ({
+        name: item.year ?? (item as any).name,
+        uv: Number(item.count ?? (item as any).uv ?? 0),
       }))
     : FALLBACK_YEARLY;
 
@@ -79,30 +85,44 @@ export default function UserGrowthChart({ growthData }: UserGrowthChartProps) {
         </div>
       </div>
       
-      <div className="flex-1 w-full min-h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={32}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#CBD5E1" opacity={0.5} />
-            <XAxis 
-              dataKey="name" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 12, fill: '#64748B' }} 
-              dy={10} 
-            />
-            <YAxis 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 12, fill: '#64748B' }}
-            />
-            <Tooltip
-              cursor={{ fill: 'transparent' }}
-              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-            />
-            <Bar dataKey="uv" fill="#3B597B" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {isLoading ? (
+        <div className="flex-1 flex items-end justify-between gap-3 pt-6 pb-2 px-2 animate-pulse min-h-[250px]">
+          {[35, 65, 30, 75, 95, 80, 55, 30, 85, 70, 35, 60].map((height, idx) => (
+            <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+              <div
+                className="w-full bg-slate-300/70 rounded-t-md"
+                style={{ height: `${height}%` }}
+              />
+              <div className="h-3 w-6 bg-slate-300/50 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 w-full min-h-[250px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={32}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#CBD5E1" opacity={0.5} />
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748B' }} 
+                dy={10} 
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#64748B' }}
+              />
+              <Tooltip
+                cursor={{ fill: 'transparent' }}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+              />
+              <Bar dataKey="uv" fill="#3B597B" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

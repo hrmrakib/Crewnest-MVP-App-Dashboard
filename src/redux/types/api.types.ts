@@ -14,12 +14,67 @@ export interface SuccessResponse {
 
 // ─── Admin Overview ───────────────────────────────────────────────────────────
 
+export interface OverviewMetrics {
+  total_users: number;
+  active_listings: number;
+  total_bookings: number;
+  total_revenue: number;
+}
+
+export interface GrowthMonthlyItem {
+  month: string;
+  count: number;
+}
+
+export interface GrowthYearlyItem {
+  year: string;
+  count: number;
+}
+
+export interface GrowthData {
+  monthly: GrowthMonthlyItem[];
+  yearly: GrowthYearlyItem[];
+}
+
+export interface RoleDetail {
+  count: number;
+  percentage: number;
+}
+
+export interface RolesData {
+  landlord?: RoleDetail;
+  renter?: RoleDetail;
+  [key: string]: RoleDetail | undefined;
+}
+
+export interface LatestBookingUser {
+  id: string;
+  name: string;
+  profile_pic: string | null;
+}
+
+export interface LatestBookingItem {
+  id: number;
+  user: LatestBookingUser | string;
+  listing_title: string;
+  amount: string;
+  status: string;
+  created_at: string;
+}
+
+export interface NewUserItem {
+  id: string;
+  name: string;
+  role: string;
+  joined_date: string;
+}
+
 export interface AdminOverview {
-  overview: string;
-  growth: string;
-  roles: string;
-  latest_bookings: string;
-  new_users: string;
+  overview: OverviewMetrics;
+  growth: GrowthData;
+  roles: RolesData;
+  latest_bookings: LatestBookingItem[];
+  new_users: NewUserItem[];
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -151,8 +206,8 @@ export interface FAQRequest {
   question: string;
   answer: string;
   user_type: UserRole;
-  order?: number;
-  is_active?: boolean;
+  order: number;
+  is_active: boolean;
 }
 
 // ─── Support Tickets ──────────────────────────────────────────────────────────

@@ -53,22 +53,13 @@ export default function UsersTable() {
     }
   };
 
-  const FALLBACK_USERS: DashboardUserList[] = [
-    { id: "usr_1", full_name: "Olivia Rhye", email: "olivia@crewnest.app", role: "landlord", created_at: "2024-01-15T10:00:00Z", is_active: true, profile_picture: null },
-    { id: "usr_2", full_name: "Elias Vance", email: "elias@crewnest.app", role: "renter", created_at: "2024-02-10T11:30:00Z", is_active: true, profile_picture: null },
-    { id: "usr_3", full_name: "Sarah Chen", email: "sarah@crewnest.app", role: "landlord", created_at: "2024-03-01T09:15:00Z", is_active: false, profile_picture: null },
-    { id: "usr_4", full_name: "Marcus O'Neil", email: "marcus@crewnest.app", role: "renter", created_at: "2024-03-12T14:20:00Z", is_active: true, profile_picture: null },
-    { id: "usr_5", full_name: "Emma Watson", email: "emma@crewnest.app", role: "renter", created_at: "2024-03-18T16:00:00Z", is_active: true, profile_picture: null },
-  ];
-
   // Client-side pagination with safe array check
   const allUsers: DashboardUserList[] = React.useMemo(() => {
-    if (Array.isArray(users) && users.length > 0) return users;
-    if (Array.isArray((users as any)?.results) && (users as any).results.length > 0) {
+    if (Array.isArray(users)) return users;
+    if (Array.isArray((users as any)?.results)) {
       return (users as any).results;
     }
-    if (Array.isArray(users)) return []; // genuinely empty API response
-    return FALLBACK_USERS;
+    return [];
   }, [users]);
 
   const totalPages = Math.max(1, Math.ceil(allUsers.length / PAGE_SIZE));
@@ -136,7 +127,13 @@ export default function UsersTable() {
               ) : paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-text-secondary">
-                    No users found.
+                    {searchQuery.trim()
+                      ? `No users found matching "${searchQuery}".`
+                      : activeTab === "Suspend"
+                      ? "No suspended users found."
+                      : activeTab === "Active"
+                      ? "No active users found."
+                      : "No users found."}
                   </td>
                 </tr>
               ) : (

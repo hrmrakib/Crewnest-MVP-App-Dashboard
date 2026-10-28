@@ -12,9 +12,10 @@ async function proxyRequest(
   if (cleanPath.startsWith("api/")) {
     cleanPath = cleanPath.slice(4);
   }
+  const normalizedPath = cleanPath.replace(/^\/+|\/+$/g, "");
   const search = request.nextUrl.search || "";
   const queryString = search ? (search.startsWith("?") ? search : `?${search}`) : "";
-  const targetUrl = `${API_BASE_URL}/${cleanPath}/${queryString}`;
+  const targetUrl = `${API_BASE_URL}/${normalizedPath}/${queryString}`;
 
 
   const headers = new Headers();

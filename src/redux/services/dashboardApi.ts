@@ -31,15 +31,68 @@ import type {
 } from "../types/api.types";
 
 export const dashboardApi = apiSlice.injectEndpoints({
+  overrideExisting: true,
   endpoints: (builder) => ({
     // ─── Admin Overview ────────────────────────────────────────────────────────
     getAdminOverview: builder.query<AdminOverview, void>({
-      query: () => "v1/admin/overview/",
+      query: () => "v1/dashboard/overview/",
+      transformResponse: (response: any): AdminOverview => {
+        const data = response?.data ?? response;
+        const parseIfString = (val: any) => {
+          if (typeof val === "string") {
+            try { return JSON.parse(val); } catch { return val; }
+          }
+          return val;
+        };
+
+        return {
+          overview: parseIfString(data?.overview) ?? {
+            total_users: 0,
+            active_listings: 0,
+            total_bookings: 0,
+            total_revenue: 0,
+          },
+          growth: parseIfString(data?.growth) ?? { monthly: [], yearly: [] },
+          roles: parseIfString(data?.roles) ?? {},
+          latest_bookings: Array.isArray(parseIfString(data?.latest_bookings))
+            ? parseIfString(data?.latest_bookings)
+            : [],
+          new_users: Array.isArray(parseIfString(data?.new_users))
+            ? parseIfString(data?.new_users)
+            : [],
+        };
+      },
       providesTags: ["Dashboard"],
     }),
 
-    getDashboardOverview: builder.query<{ success: boolean; message: string }, void>({
+    getDashboardOverview: builder.query<AdminOverview, void>({
       query: () => "v1/dashboard/overview/",
+      transformResponse: (response: any): AdminOverview => {
+        const data = response?.data ?? response;
+        const parseIfString = (val: any) => {
+          if (typeof val === "string") {
+            try { return JSON.parse(val); } catch { return val; }
+          }
+          return val;
+        };
+
+        return {
+          overview: parseIfString(data?.overview) ?? {
+            total_users: 0,
+            active_listings: 0,
+            total_bookings: 0,
+            total_revenue: 0,
+          },
+          growth: parseIfString(data?.growth) ?? { monthly: [], yearly: [] },
+          roles: parseIfString(data?.roles) ?? {},
+          latest_bookings: Array.isArray(parseIfString(data?.latest_bookings))
+            ? parseIfString(data?.latest_bookings)
+            : [],
+          new_users: Array.isArray(parseIfString(data?.new_users))
+            ? parseIfString(data?.new_users)
+            : [],
+        };
+      },
       providesTags: ["Dashboard"],
     }),
 
@@ -93,6 +146,14 @@ export const dashboardApi = apiSlice.injectEndpoints({
         url: "v1/dashboard/users/",
         params: { search, status },
       }),
+      transformResponse: (response: unknown): DashboardUserList[] => {
+        if (Array.isArray(response)) return response;
+        if (response && typeof response === "object" && "results" in response) {
+          const res = (response as { results: unknown }).results;
+          if (Array.isArray(res)) return res as DashboardUserList[];
+        }
+        return [];
+      },
       providesTags: ["Users"],
     }),
 
@@ -166,6 +227,12 @@ export const dashboardApi = apiSlice.injectEndpoints({
         url: "v1/faq/",
         params: { user_type },
       }),
+      transformResponse: (response: any): FAQ[] => {
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (Array.isArray(response?.results)) return response.results;
+        return [];
+      },
       providesTags: ["FAQs"],
     }),
 
@@ -175,6 +242,9 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "POST",
         body: data,
       }),
+      transformResponse: (response: any): FAQ => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["FAQs"],
     }),
 
@@ -184,6 +254,9 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "PUT",
         body: data,
       }),
+      transformResponse: (response: any): FAQ => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["FAQs"],
     }),
 

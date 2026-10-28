@@ -8,25 +8,30 @@ import ComparisonChart from "@/components/dashboard/ComparisonChart";
 import LatestBookings from "@/components/dashboard/LatestBookings";
 import NewUsers from "@/components/dashboard/NewUsers";
 import { useGetAdminOverviewQuery } from "@/redux/services/dashboardApi";
+import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton";
 
 export default function DashboardOverviewPage() {
-  const { data: overview, isLoading } = useGetAdminOverviewQuery();
+  const { data: overview, isLoading, isFetching } = useGetAdminOverviewQuery();
 
-  // Parse JSON strings from the API
   const overviewData = React.useMemo(() => {
     if (!overview?.overview) return null;
-    try { return JSON.parse(overview.overview); } catch { return null; }
+    if (typeof overview.overview === "string") {
+      try { return JSON.parse(overview.overview); } catch { return null; }
+    }
+    return overview.overview;
   }, [overview?.overview]);
 
-  const rolesData = React.useMemo(() => {
-    if (!overview?.roles) return null;
-    try { return JSON.parse(overview.roles); } catch { return null; }
-  }, [overview?.roles]);
+  if (isLoading && !overview) {
+    return <DashboardSkeleton />;
+  }
 
-  const totalUsers = overviewData?.total_users ?? overviewData?.users ?? "—";
-  const activeListings = overviewData?.active_listings ?? overviewData?.listings ?? "—";
-  const totalBookings = overviewData?.total_bookings ?? overviewData?.bookings ?? "—";
-  const revenue = overviewData?.revenue ?? overviewData?.total_revenue ?? "—";
+  const totalUsers = overviewData?.total_users ?? "0";
+  const activeListings = overviewData?.active_listings ?? "0";
+  const totalBookings = overviewData?.total_bookings ?? "0";
+  const rawRevenue = overviewData?.total_revenue ?? (overviewData as any)?.revenue;
+  const revenue = rawRevenue !== undefined && rawRevenue !== null
+    ? `$${Number(rawRevenue).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : "$0.00";
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -34,22 +39,26 @@ export default function DashboardOverviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard
           label="Total Users"
-          value={isLoading ? "..." : totalUsers}
+          value={String(totalUsers)}
+          isLoading={isFetching && !overview}
           icon={Users}
         />
         <StatCard
           label="Active Listing"
-          value={isLoading ? "..." : activeListings}
+          value={String(activeListings)}
+          isLoading={isFetching && !overview}
           icon={List}
         />
         <StatCard
           label="Total Bookings"
-          value={isLoading ? "..." : totalBookings}
+          value={String(totalBookings)}
+          isLoading={isFetching && !overview}
           icon={Calendar}
         />
         <StatCard
           label="Revenue"
-          value={isLoading ? "..." : (revenue !== "—" ? `$${revenue}` : "—")}
+          value={revenue}
+          isLoading={isFetching && !overview}
           icon={TrendingUp}
         />
       </div>
@@ -60,7 +69,7 @@ export default function DashboardOverviewPage() {
           <UserGrowthChart growthData={overview?.growth} />
         </div>
         <div className="lg:col-span-1 h-[350px]">
-          <ComparisonChart rolesData={rolesData} />
+          <ComparisonChart rolesData={overview?.roles} />
         </div>
       </div>
 
