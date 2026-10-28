@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import  { useState, useEffect, useMemo, useRef } from "react";
 import {
   Edit2,
   Check,
@@ -66,7 +66,7 @@ function parsePolicyData(data: any): PolicyDoc | null {
 
 export default function PolicyEditor() {
   const [activeTab, setActiveTab] = useState<PolicyTab>("About CrewNest");
-  const [roleTab, setRoleTab] = useState<"For Renter" | "For Landlord">("For Renter");
+  // const [roleTab, setRoleTab] = useState<"For Renter" | "For Landlord">("For Renter");
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -189,7 +189,7 @@ export default function PolicyEditor() {
       <div className="bg-[#EAEFF5] rounded-3xl p-6 md:p-8 flex-1 flex flex-col relative min-h-[520px]">
         {/* Controls Row: Role Toggles & Last Updated / Actions */}
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-          <div className="flex items-center gap-2 bg-transparent">
+          {/* <div className="flex items-center gap-2 bg-transparent">
             <button
               onClick={() => setRoleTab("For Renter")}
               className={cn(
@@ -212,7 +212,7 @@ export default function PolicyEditor() {
             >
               For Landlord
             </button>
-          </div>
+          </div> */}
 
           <div className="flex items-center gap-3">
             {lastUpdatedAt && (
