@@ -14,6 +14,8 @@ export const metadata: Metadata = {
     "Access your CrewNest dashboard — manage teams, schedules, and operations from one platform.",
 };
 
+import ReduxProvider from "@/redux/provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,7 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <ReduxProvider>{children}</ReduxProvider>
+      </body>
     </html>
   );
 }

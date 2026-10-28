@@ -54,14 +54,17 @@ function KeyIcon() {
   );
 }
 
+import { useForgotPasswordMutation } from "@/redux/services/authApi";
+import type { ApiErrorResponse } from "@/redux/types/auth.types";
+
 /* ─── Page Component ──────────────────────────────────────── */
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const { addToast } = useToast();
+  const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
 
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,21 +74,42 @@ export default function ForgotPasswordPage() {
       setError("Email is required");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError("Please enter a valid email");
       return;
     }
 
-    /* Mock send OTP flow */
-    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      addToast("OTP sent to your email successfully!", "success");
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
-    } catch {
-      addToast("Failed to send OTP. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+      const response = await forgotPassword({ email: email.trim() }).unwrap();
+      const message = response.message || "OTP sent to your email successfully!";
+      addToast(message, "success");
+      router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
+    } catch (err: unknown) {
+      const apiErr = err as {
+        status?: number;
+        data?: ApiErrorResponse;
+      };
+
+      const serverErrors = apiErr.data?.errors;
+      const nonFieldError =
+        serverErrors?.non_field_errors?.[0] ||
+        (typeof serverErrors?.non_field_errors === "string"
+          ? serverErrors.non_field_errors
+          : undefined);
+
+      const emailError =
+        serverErrors?.email?.[0] ||
+        (typeof serverErrors?.email === "string" ? serverErrors.email : undefined);
+
+      const generalMessage =
+        emailError ||
+        nonFieldError ||
+        apiErr.data?.message ||
+        apiErr.data?.detail ||
+        "Failed to send OTP. Please check your email.";
+
+      setError(generalMessage);
+      addToast(generalMessage, "error");
     }
   };
 

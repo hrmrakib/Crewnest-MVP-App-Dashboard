@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { useLogoutUserMutation } from "@/redux/services/authApi";
+import { logout as logoutAction } from "@/redux/features/auth/authSlice";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -29,6 +32,9 @@ interface SidebarProps {
 
 export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
+  const dispatch = useAppDispatch();
+  const refreshToken = useAppSelector((state) => state.auth.refreshToken);
+  const [logoutUser] = useLogoutUserMutation();
 
   const isActive = (href: string) => pathname === href;
 
@@ -92,10 +98,20 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       {/* Logout */}
       <div className='p-8'>
         <button
-          className='flex items-center gap-4 text-text-secondary hover:text-text-primary transition-colors'
-          onClick={() => {
+          className='flex items-center gap-4 text-text-secondary hover:text-text-primary transition-colors cursor-pointer'
+          onClick={async () => {
             onCloseMobile();
-            window.location.href = "/login";
+            try {
+              if (refreshToken) {
+                await logoutUser({ refresh: refreshToken }).unwrap();
+              } else {
+                dispatch(logoutAction());
+              }
+            } catch {
+              dispatch(logoutAction());
+            } finally {
+              window.location.href = "/login";
+            }
           }}
         >
           <LogOut className='w-5 h-5' />

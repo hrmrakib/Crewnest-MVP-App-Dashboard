@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import UsersTable from "@/components/users/UsersTable";
 
 export default function UsersPage() {

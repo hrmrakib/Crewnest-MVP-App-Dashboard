@@ -56,15 +56,18 @@ function PhoneOtpIcon() {
   );
 }
 
+import { useVerifyForgotPasswordMutation } from "@/redux/services/authApi";
+import type { ApiErrorResponse } from "@/redux/types/auth.types";
+
 /* ─── Inner content (needs useSearchParams) ───────────────── */
 function VerifyOtpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
   const { addToast } = useToast();
+  const [verifyForgotPassword, { isLoading }] = useVerifyForgotPasswordMutation();
 
   const [otpValue, setOtpValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleVerify = async () => {
@@ -79,16 +82,48 @@ function VerifyOtpContent() {
       return;
     }
 
-    /* Mock verify OTP flow */
-    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      addToast("OTP verified successfully!", "success");
-      router.push(`/reset-password?token=mock-reset-token-${Date.now()}`);
-    } catch {
-      addToast("Invalid OTP. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+      const response = await verifyForgotPassword({
+        email,
+        otp_code: otpValue,
+      }).unwrap();
+
+      const message = response.message || "OTP verified successfully!";
+      addToast(message, "success");
+      const tokenParam = response.token || response.access || otpValue;
+      router.push(
+        `/reset-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(
+          tokenParam
+        )}`
+      );
+    } catch (err: unknown) {
+      const apiErr = err as {
+        status?: number;
+        data?: ApiErrorResponse;
+      };
+
+      const serverErrors = apiErr.data?.errors;
+      const nonFieldError =
+        serverErrors?.non_field_errors?.[0] ||
+        (typeof serverErrors?.non_field_errors === "string"
+          ? serverErrors.non_field_errors
+          : undefined);
+
+      const otpError =
+        serverErrors?.otp_code?.[0] ||
+        (typeof serverErrors?.otp_code === "string"
+          ? serverErrors.otp_code
+          : undefined);
+
+      const generalMessage =
+        otpError ||
+        nonFieldError ||
+        apiErr.data?.message ||
+        apiErr.data?.detail ||
+        "Invalid OTP. Please check the code and try again.";
+
+      setError(generalMessage);
+      addToast(generalMessage, "error");
     }
   };
 

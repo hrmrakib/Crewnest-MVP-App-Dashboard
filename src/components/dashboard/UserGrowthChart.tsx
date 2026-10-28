@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -11,32 +11,45 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const dataMonthly = [
-  { name: "Jan", uv: 280 },
-  { name: "Feb", uv: 750 },
-  { name: "March", uv: 280 },
-  { name: "April", uv: 750 },
-  { name: "May", uv: 1100 },
-  { name: "June", uv: 1000 },
-  { name: "July", uv: 600 },
-  { name: "Aug", uv: 280 },
-  { name: "Sep", uv: 950 },
-  { name: "Oct", uv: 750 },
-  { name: "Nov", uv: 280 },
-  { name: "Dec", uv: 750 },
+const FALLBACK_MONTHLY = [
+  { name: "Jan", uv: 280 }, { name: "Feb", uv: 750 }, { name: "Mar", uv: 280 },
+  { name: "Apr", uv: 750 }, { name: "May", uv: 1100 }, { name: "Jun", uv: 1000 },
+  { name: "Jul", uv: 600 }, { name: "Aug", uv: 280 }, { name: "Sep", uv: 950 },
+  { name: "Oct", uv: 750 }, { name: "Nov", uv: 280 }, { name: "Dec", uv: 750 },
 ];
 
-const dataYearly = [
-  { name: "2019", uv: 4000 },
-  { name: "2020", uv: 3000 },
-  { name: "2021", uv: 6000 },
-  { name: "2022", uv: 8000 },
-  { name: "2023", uv: 9500 },
+const FALLBACK_YEARLY = [
+  { name: "2020", uv: 3000 }, { name: "2021", uv: 6000 },
+  { name: "2022", uv: 8000 }, { name: "2023", uv: 9500 }, { name: "2024", uv: 11000 },
 ];
 
-export default function UserGrowthChart() {
+interface UserGrowthChartProps {
+  growthData?: string;
+}
+
+export default function UserGrowthChart({ growthData }: UserGrowthChartProps) {
   const [period, setPeriod] = useState<"Monthly" | "Yearly">("Monthly");
-  const data = period === "Monthly" ? dataMonthly : dataYearly;
+
+  const parsedGrowth = useMemo(() => {
+    if (!growthData) return null;
+    try { return JSON.parse(growthData); } catch { return null; }
+  }, [growthData]);
+
+  const monthlyData = parsedGrowth?.monthly
+    ? parsedGrowth.monthly.map((item: Record<string, unknown>) => ({
+        name: item.month ?? item.name,
+        uv: Number(item.count ?? item.uv ?? 0),
+      }))
+    : FALLBACK_MONTHLY;
+
+  const yearlyData = parsedGrowth?.yearly
+    ? parsedGrowth.yearly.map((item: Record<string, unknown>) => ({
+        name: item.year ?? item.name,
+        uv: Number(item.count ?? item.uv ?? 0),
+      }))
+    : FALLBACK_YEARLY;
+
+  const data = period === "Monthly" ? monthlyData : yearlyData;
 
   return (
     <div className="bg-[#EAEFF5] rounded-2xl p-6 shadow-sm h-full flex flex-col">
@@ -81,8 +94,6 @@ export default function UserGrowthChart() {
               axisLine={false} 
               tickLine={false} 
               tick={{ fontSize: 12, fill: '#64748B' }}
-              domain={[0, 1200]}
-              ticks={[200, 400, 600, 800, 1000, 1200]}
             />
             <Tooltip
               cursor={{ fill: 'transparent' }}

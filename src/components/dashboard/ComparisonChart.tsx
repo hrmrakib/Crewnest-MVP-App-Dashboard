@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   PieChart,
   Pie,
@@ -9,12 +9,30 @@ import {
   Tooltip,
 } from "recharts";
 
-const data = [
-  { name: "Landlord", value: 700, color: "#112349" },
-  { name: "Renter", value: 500, color: "#F59E0B" },
-];
+const COLORS = { landlord: "#112349", renter: "#F59E0B" };
 
-export default function ComparisonChart() {
+interface ComparisonChartProps {
+  rolesData?: Record<string, number> | null;
+}
+
+export default function ComparisonChart({ rolesData }: ComparisonChartProps) {
+  const data = useMemo(() => {
+    if (rolesData && (rolesData.landlord !== undefined || rolesData.renter !== undefined)) {
+      return [
+        { name: "Landlord", value: rolesData.landlord ?? 0, color: COLORS.landlord },
+        { name: "Renter", value: rolesData.renter ?? 0, color: COLORS.renter },
+      ];
+    }
+    return [
+      { name: "Landlord", value: 700, color: COLORS.landlord },
+      { name: "Renter", value: 500, color: COLORS.renter },
+    ];
+  }, [rolesData]);
+
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+  const landlordPct = total > 0 ? Math.round((data[0].value / total) * 100) : 0;
+  const renterPct = total - (landlordPct * total) / 100 > 0 ? 100 - landlordPct : 0;
+
   return (
     <div className="bg-[#EAEFF5] rounded-2xl p-6 shadow-sm h-full flex flex-col">
       <h3 className="text-lg font-semibold text-text-primary mb-6">Comparison</h3>
@@ -66,17 +84,17 @@ export default function ComparisonChart() {
         {/* Center Text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-sm text-text-secondary">Total</span>
-          <span className="text-2xl font-bold text-text-primary">1200</span>
+          <span className="text-2xl font-bold text-text-primary">{total}</span>
         </div>
       </div>
 
       {/* Footer Stats */}
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#CBD5E1]/50">
         <div className="text-primary font-medium text-sm">
-          60% (700)
+          {landlordPct}% ({data[0].value})
         </div>
         <div className="text-accent-amber font-medium text-sm">
-          40% (500)
+          {renterPct}% ({data[1].value})
         </div>
       </div>
     </div>

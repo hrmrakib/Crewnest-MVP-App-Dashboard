@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock } from "lucide-react";
 import AuthLayout from "@/components/auth/AuthLayout";
 import InputField from "@/components/auth/InputField";
 import AuthButton from "@/components/auth/AuthButton";
 import { useToast } from "@/components/toast";
+import { useLoginMutation } from "@/redux/services/authApi";
+import { useAppDispatch } from "@/redux/hooks";
+import { logout } from "@/redux/features/auth/authSlice";
+import type { ApiErrorResponse } from "@/redux/types/auth.types";
 
 /* ─── SVG icon for the left branding panel ────────────────── */
 function HouseIcon() {
@@ -48,32 +52,20 @@ function HouseIcon() {
 interface FormErrors {
   email?: string;
   password?: string;
-  confirmPassword?: string;
+  general?: string;
 }
 
-function validateForm(
-  email: string,
-  password: string,
-  confirmPassword: string,
-): FormErrors {
+function validateForm(email: string, password: string): FormErrors {
   const errors: FormErrors = {};
 
   if (!email.trim()) {
     errors.email = "Email is required";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     errors.email = "Please enter a valid email";
   }
 
   if (!password) {
     errors.password = "Password is required";
-  } else if (password.length < 6) {
-    errors.password = "Password must be at least 6 characters";
-  }
-
-  if (!confirmPassword) {
-    errors.confirmPassword = "Please confirm your password";
-  } else if (password !== confirmPassword) {
-    errors.confirmPassword = "Passwords do not match";
   }
 
   return errors;
@@ -82,34 +74,111 @@ function validateForm(
 /* ─── Page Component ──────────────────────────────────────── */
 export default function LoginPage() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const { addToast } = useToast();
+  const [login, { isLoading }] = useLoginMutation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Reset any stale tokens upon navigating to login page
+  useEffect(() => {
+    dispatch(logout());
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user");
+    }
+  }, [dispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    /* Validate */
-    const formErrors = validateForm(email, password, confirmPassword);
+    /* Client-side validation */
+    const formErrors = validateForm(email, password);
     setErrors(formErrors);
     if (Object.keys(formErrors).length > 0) return;
 
-    /* Mock login flow */
-    setIsLoading(true);
+    // Ensure no stale tokens exist before login
+    dispatch(logout());
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+    }
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      addToast("Logged in successfully! Welcome to CrewNest.", "success");
+      const response = await login({
+        email: email.trim(),
+        password,
+      }).unwrap();
+
+      const successMessage =
+        response.message || "Logged in successfully! Welcome to CrewNest.";
+      addToast(successMessage, "success");
       router.push("/dashboard");
-    } catch {
-      addToast("Login failed. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+    } catch (err: unknown) {
+      const apiErr = err as {
+        status?: number;
+        data?: ApiErrorResponse;
+      };
+
+      const serverErrors = apiErr.data?.errors as any;
+
+      const detailError =
+        typeof serverErrors?.detail === "string"
+          ? serverErrors.detail
+          : Array.isArray(serverErrors?.messages) && serverErrors.messages[0]?.message
+          ? serverErrors.messages[0].message
+          : typeof apiErr.data?.detail === "string"
+          ? apiErr.data.detail
+          : undefined;
+
+      const nonFieldError =
+        serverErrors?.non_field_errors?.[0] ||
+        (typeof serverErrors?.non_field_errors === "string"
+          ? serverErrors.non_field_errors
+          : undefined) ||
+        detailError;
+
+      const emailError =
+        serverErrors?.email?.[0] ||
+        (typeof serverErrors?.email === "string" ? serverErrors.email : undefined);
+
+      const passwordError =
+        serverErrors?.password?.[0] ||
+        (typeof serverErrors?.password === "string"
+          ? serverErrors.password
+          : undefined);
+
+      // Handle token_not_valid gracefully
+      let generalMessage =
+        nonFieldError ||
+        apiErr.data?.message ||
+        "Invalid email or password. Please try again.";
+
+      if (
+        generalMessage.toLowerCase().includes("token not valid") ||
+        generalMessage.toLowerCase().includes("token is invalid")
+      ) {
+        generalMessage = "Your session expired. Please log in with your credentials.";
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
+          localStorage.removeItem("user");
+        }
+      }
+
+      setErrors({
+        email: emailError,
+        password: passwordError,
+        general: generalMessage,
+      });
+
+      addToast(generalMessage, "error");
     }
   };
+
 
   return (
     <AuthLayout
@@ -121,6 +190,14 @@ export default function LoginPage() {
       {/* Form heading */}
       <h2 className="text-2xl font-bold text-text-primary mb-8">Log In</h2>
 
+      {/* General error message box if server error occurs */}
+      {errors.general && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600 flex items-start gap-2 animate-fade-in">
+          <span className="font-semibold">Error:</span>
+          <span>{errors.general}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} noValidate>
         <InputField
           type="email"
@@ -129,7 +206,13 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
-            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            if (errors.email || errors.general) {
+              setErrors((prev) => ({
+                ...prev,
+                email: undefined,
+                general: undefined,
+              }));
+            }
           }}
           error={errors.email}
           autoComplete="email"
@@ -137,30 +220,21 @@ export default function LoginPage() {
 
         <InputField
           type="password"
-          label="Create Password"
+          label="Password"
           icon={<Lock className="w-5 h-5" />}
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);
-            if (errors.password)
-              setErrors((prev) => ({ ...prev, password: undefined }));
+            if (errors.password || errors.general) {
+              setErrors((prev) => ({
+                ...prev,
+                password: undefined,
+                general: undefined,
+              }));
+            }
           }}
           error={errors.password}
-          autoComplete="new-password"
-        />
-
-        <InputField
-          type="password"
-          label="Confirm Password"
-          icon={<Lock className="w-5 h-5" />}
-          value={confirmPassword}
-          onChange={(e) => {
-            setConfirmPassword(e.target.value);
-            if (errors.confirmPassword)
-              setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
-          }}
-          error={errors.confirmPassword}
-          autoComplete="new-password"
+          autoComplete="current-password"
         />
 
         {/* Forgot password link */}
@@ -168,7 +242,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => router.push("/forgot-password")}
-            className="text-sm text-primary hover:underline font-medium transition-colors"
+            className="text-sm text-primary hover:underline font-medium transition-colors cursor-pointer"
           >
             Forgot password?
           </button>

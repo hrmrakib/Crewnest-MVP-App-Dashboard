@@ -39,15 +39,12 @@ export default function OtpInput({
 }: OtpInputProps) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
   const [countdown, setCountdown] = useState(60);
-  const [canResend, setCanResend] = useState(false);
+  const canResend = countdown <= 0;
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   /* ── Countdown Timer ─────────────────────────────────── */
   useEffect(() => {
-    if (countdown <= 0) {
-      setCanResend(true);
-      return;
-    }
+    if (countdown <= 0) return;
     const timer = setInterval(() => {
       setCountdown((prev) => prev - 1);
     }, 1000);
@@ -57,7 +54,6 @@ export default function OtpInput({
   /* ── Resend handler ──────────────────────────────────── */
   const handleResend = useCallback(() => {
     setCountdown(60);
-    setCanResend(false);
     setOtp(Array(length).fill(""));
     inputRefs.current[0]?.focus();
   }, [length]);

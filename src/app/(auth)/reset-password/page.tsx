@@ -84,17 +84,21 @@ function validateForm(password: string, confirmPassword: string): FormErrors {
   return errors;
 }
 
+import { useResetPasswordMutation } from "@/redux/services/authApi";
+import type { ApiErrorResponse } from "@/redux/types/auth.types";
+
 /* ─── Inner content (needs useSearchParams) ───────────────── */
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
+  const email = searchParams.get("email") || "";
   const { addToast } = useToast();
+  const [resetPassword, { isLoading }] = useResetPasswordMutation();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,22 +108,56 @@ function ResetPasswordContent() {
     setErrors(formErrors);
     if (Object.keys(formErrors).length > 0) return;
 
-    if (!token) {
-      addToast("Reset token is missing. Please try again.", "error");
-      router.push("/forgot-password");
-      return;
-    }
-
-    /* Mock reset password flow */
-    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      addToast("Password updated successfully! Please log in.", "success");
+      const response = await resetPassword({
+        new_password: password,
+        confirm_password: confirmPassword,
+        token,
+        email,
+      }).unwrap();
+
+      const message =
+        response.message || "Password updated successfully! Please log in.";
+      addToast(message, "success");
       router.push("/login");
-    } catch {
-      addToast("Failed to update password. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+    } catch (err: unknown) {
+      const apiErr = err as {
+        status?: number;
+        data?: ApiErrorResponse;
+      };
+
+      const serverErrors = apiErr.data?.errors;
+      const nonFieldError =
+        serverErrors?.non_field_errors?.[0] ||
+        (typeof serverErrors?.non_field_errors === "string"
+          ? serverErrors.non_field_errors
+          : undefined);
+
+      const passError =
+        serverErrors?.new_password?.[0] ||
+        (typeof serverErrors?.new_password === "string"
+          ? serverErrors.new_password
+          : undefined);
+
+      const confirmError =
+        serverErrors?.confirm_password?.[0] ||
+        (typeof serverErrors?.confirm_password === "string"
+          ? serverErrors.confirm_password
+          : undefined);
+
+      const generalMessage =
+        passError ||
+        confirmError ||
+        nonFieldError ||
+        apiErr.data?.message ||
+        apiErr.data?.detail ||
+        "Failed to update password. Please try again.";
+
+      setErrors({
+        password: passError,
+        confirmPassword: confirmError,
+      });
+      addToast(generalMessage, "error");
     }
   };
 
