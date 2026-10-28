@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,6 +11,8 @@ import {
   Shield,
   LogOut,
   X,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
@@ -34,9 +36,30 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const refreshToken = useAppSelector((state) => state.auth.refreshToken);
-  const [logoutUser] = useLogoutUserMutation();
+  const [logoutUser, { isLoading: isLoggingOut }] = useLogoutUserMutation();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const isActive = (href: string) => pathname === href;
+
+  const handleOpenLogout = () => {
+    onCloseMobile();
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    try {
+      if (refreshToken) {
+        await logoutUser({ refresh: refreshToken }).unwrap();
+      } else {
+        dispatch(logoutAction());
+      }
+    } catch {
+      dispatch(logoutAction());
+    } finally {
+      setShowLogoutModal(false);
+      window.location.href = "/login";
+    }
+  };
 
   const sidebarContent = (
     <div className='flex flex-col h-full bg-[#E5E9F4] text-text-primary'>
@@ -95,27 +118,15 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* Logout */}
+      {/* Logout Button */}
       <div className='p-8'>
         <button
-          className='flex items-center gap-4 text-text-secondary hover:text-text-primary transition-colors cursor-pointer'
-          onClick={async () => {
-            onCloseMobile();
-            try {
-              if (refreshToken) {
-                await logoutUser({ refresh: refreshToken }).unwrap();
-              } else {
-                dispatch(logoutAction());
-              }
-            } catch {
-              dispatch(logoutAction());
-            } finally {
-              window.location.href = "/login";
-            }
-          }}
+          type='button'
+          className='flex items-center gap-4 text-text-secondary hover:text-red-600 transition-colors cursor-pointer group w-full'
+          onClick={handleOpenLogout}
         >
-          <LogOut className='w-5 h-5' />
-          <span>Logout</span>
+          <LogOut className='w-5 h-5 group-hover:text-red-600 transition-colors' />
+          <span className='font-medium'>Logout</span>
         </button>
       </div>
     </div>
@@ -147,6 +158,76 @@ export default function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         </button>
         {sidebarContent}
       </aside>
+
+      {/* Logout Warning Confirmation Modal */}
+      {showLogoutModal && (
+        <div className='fixed inset-0 z-[100] flex items-center justify-center p-4'>
+          {/* Backdrop */}
+          <div
+            className='absolute inset-0 bg-[#0F172A]/50 backdrop-blur-sm transition-opacity animate-fade-in'
+            onClick={() => {
+              if (!isLoggingOut) setShowLogoutModal(false);
+            }}
+          />
+
+          {/* Modal Container */}
+          <div className='relative bg-white rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl border border-border animate-fade-in-scale flex flex-col items-center text-center z-10'>
+            {/* Close Button */}
+            <button
+              type='button'
+              onClick={() => setShowLogoutModal(false)}
+              disabled={isLoggingOut}
+              className='absolute top-4 right-4 p-2 text-text-secondary hover:text-text-primary hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50'
+              aria-label='Close'
+            >
+              <X className='w-5 h-5' />
+            </button>
+
+            {/* Warning Icon Badge */}
+            <div className='w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-5 border border-amber-200 shadow-xs'>
+              <AlertTriangle className='w-8 h-8' />
+            </div>
+
+            {/* Title & Description */}
+            <h3 className='text-xl font-bold text-text-primary mb-2'>
+              Confirm Logout
+            </h3>
+            <p className='text-sm text-text-secondary leading-relaxed mb-6'>
+              Are you sure you want to log out of CrewNest Dashboard? You will need to sign in again to access the dashboard.
+            </p>
+
+            {/* Action Buttons */}
+            <div className='flex items-center gap-3 w-full'>
+              <button
+                type='button'
+                disabled={isLoggingOut}
+                onClick={() => setShowLogoutModal(false)}
+                className='flex-1 px-5 py-2.5 rounded-xl border border-gray-300 text-text-primary hover:bg-slate-50 font-medium transition-colors disabled:opacity-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                disabled={isLoggingOut}
+                onClick={handleConfirmLogout}
+                className='flex-1 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50'
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className='w-4 h-4 animate-spin' />
+                    <span>Logging out...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className='w-4 h-4' />
+                    <span>Yes, Log Out</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

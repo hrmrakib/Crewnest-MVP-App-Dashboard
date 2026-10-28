@@ -23,13 +23,14 @@ const PUBLIC_AUTH_ENDPOINTS = [
   "resetPassword",
 ];
 
-// Compute base URL ensuring /api/ prefix for backend endpoints
+// Compute base URL ensuring /api/ prefix directly from .env configuration
 const getBaseUrl = (): string => {
-  // In the browser, use the internal Next.js proxy /api/ to prevent CORS blocks
-  if (typeof window !== "undefined") {
-    return "/api/";
-  }
-  const envUrl = (process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://187.6.167.239/").trim();
+  const envUrl = (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.BACKEND_API_URL ||
+    "http://187.6.167.239/api/"
+  ).trim();
+
   if (envUrl.startsWith("/")) {
     return envUrl.endsWith("/") ? envUrl : `${envUrl}/`;
   }

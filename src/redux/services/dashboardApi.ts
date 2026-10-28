@@ -310,6 +310,12 @@ export const dashboardApi = apiSlice.injectEndpoints({
     // ─── Dashboard Policy Endpoints ─────────────────────────────────────────────
     getAboutUs: builder.query<AboutUs[], void>({
       query: () => "v1/dashboard/about-us/",
+      transformResponse: (response: any): AboutUs[] => {
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (response?.data && typeof response.data === "object") return [response.data];
+        return [];
+      },
       providesTags: ["Documents"],
     }),
 
@@ -319,11 +325,20 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "PUT",
         body: data,
       }),
+      transformResponse: (response: any): AboutUs => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["Documents"],
     }),
 
     getPrivacyPolicy: builder.query<PrivacyPolicy[], void>({
       query: () => "v1/dashboard/privacy-policy/",
+      transformResponse: (response: any): PrivacyPolicy[] => {
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (response?.data && typeof response.data === "object") return [response.data];
+        return [];
+      },
       providesTags: ["Documents"],
     }),
 
@@ -333,11 +348,20 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "PUT",
         body: data,
       }),
+      transformResponse: (response: any): PrivacyPolicy => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["Documents"],
     }),
 
     getTermsConditions: builder.query<TermsCondition[], void>({
       query: () => "v1/dashboard/terms-conditions/",
+      transformResponse: (response: any): TermsCondition[] => {
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (response?.data && typeof response.data === "object") return [response.data];
+        return [];
+      },
       providesTags: ["Documents"],
     }),
 
@@ -347,6 +371,9 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "PUT",
         body: data,
       }),
+      transformResponse: (response: any): TermsCondition => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["Documents"],
     }),
 

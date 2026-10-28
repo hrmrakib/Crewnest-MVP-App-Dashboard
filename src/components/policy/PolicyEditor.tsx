@@ -4,17 +4,14 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Edit2,
   Check,
-  RotateCcw,
-  RotateCw,
-  ZoomIn,
   Bold,
   Italic,
   Underline,
   List,
   ListOrdered,
-  AlignLeft,
   Loader2,
   Save,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -27,41 +24,45 @@ import {
 } from "@/redux/services/dashboardApi";
 import { useToast } from "@/components/toast";
 
-const DEFAULT_ABOUT = `CrewNest is a next-generation platform designed for aviation professionals and property owners. We connect cabin crew, pilots, and airline personnel with verified, comfortable, and flexible accommodations worldwide.
+type PolicyTab = "About CrewNest" | "Privacy Policy" | "Terms & Conditions";
 
-Our Mission:
-To provide seamless, reliable housing solutions tailored specifically to the unique schedules and needs of airline crew.
+interface PolicyDoc {
+  content: string;
+  updated_at?: string;
+}
 
-Our Vision:
-To build the most trusted global community network for traveling aviation professionals.`;
+/**
+ * Safely extract policy document whether response is:
+ * - { success: true, data: [ { content, updated_at } ] }
+ * - { success: true, data: { content, updated_at } }
+ * - [ { content, updated_at } ]
+ * - { content, updated_at }
+ */
+function parsePolicyData(data: any): PolicyDoc | null {
+  if (!data) return null;
 
-const DEFAULT_PRIVACY = `CrewNest is committed to protecting your privacy and personal data.
+  // Wrapped in { success: true, data: [...] } or { data: {...} }
+  if (data?.data !== undefined) {
+    if (Array.isArray(data.data) && data.data.length > 0) {
+      return data.data[0];
+    }
+    if (typeof data.data === "object" && data.data !== null && "content" in data.data) {
+      return data.data;
+    }
+  }
 
-1. Information We Collect:
-- Account information (name, airline ID, email, phone number)
-- Booking details and payment history
-- Device information and location data during active sessions
+  // Direct array [...]
+  if (Array.isArray(data) && data.length > 0) {
+    return data[0];
+  }
 
-2. How We Use Information:
-- To verify airline credentials and ensure safety
-- To process bookings and payments securely
-- To provide 24/7 customer assistance
+  // Direct object { content: ... }
+  if (typeof data === "object" && data !== null && "content" in data) {
+    return data;
+  }
 
-3. Security:
-We implement industry-standard encryption protocols to safeguard your personal information.`;
-
-const DEFAULT_TERMS = `Welcome to CrewNest. By accessing or using our platform, you agree to these terms:
-
-1. Eligibility:
-You must be a verified airline employee or registered property host to use CrewNest services.
-
-2. Booking & Cancellation:
-Bookings are subject to cancellation terms specified at the time of reservation. Airline schedule disruption policies apply with valid proof.
-
-3. Code of Conduct:
-All users are expected to treat properties and hosts with respect. Violations will result in account suspension.`;
-
-type PolicyTab = "About CrewNest" | "Privacy Policy" | "Terms& Policy";
+  return null;
+}
 
 export default function PolicyEditor() {
   const [activeTab, setActiveTab] = useState<PolicyTab>("About CrewNest");
@@ -71,7 +72,7 @@ export default function PolicyEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { addToast } = useToast();
 
-  // Queries
+  // RTK Query hooks
   const { data: aboutData, isLoading: loadingAbout } = useGetAboutUsQuery();
   const { data: privacyData, isLoading: loadingPrivacy } = useGetPrivacyPolicyQuery();
   const { data: termsData, isLoading: loadingTerms } = useGetTermsConditionsQuery();
@@ -85,30 +86,26 @@ export default function PolicyEditor() {
   const isLoading =
     (activeTab === "About CrewNest" && loadingAbout) ||
     (activeTab === "Privacy Policy" && loadingPrivacy) ||
-    (activeTab === "Terms& Policy" && loadingTerms);
+    (activeTab === "Terms & Conditions" && loadingTerms);
 
-  // Derive active content from server response
-  const serverContent = useMemo(() => {
-    const extract = (data: any, fallback: string) => {
-      if (!data) return fallback;
-      if (Array.isArray(data) && data.length > 0) return data[0].content || fallback;
-      if (typeof data === "object" && "content" in data) return data.content || fallback;
-      return fallback;
-    };
-
+  // Parse active document and fallback
+  const currentDoc = useMemo(() => {
     switch (activeTab) {
       case "About CrewNest":
-        return extract(aboutData, DEFAULT_ABOUT);
+        return parsePolicyData(aboutData);
       case "Privacy Policy":
-        return extract(privacyData, DEFAULT_PRIVACY);
-      case "Terms& Policy":
-        return extract(termsData, DEFAULT_TERMS);
+        return parsePolicyData(privacyData);
+      case "Terms & Conditions":
+        return parsePolicyData(termsData);
       default:
-        return DEFAULT_ABOUT;
+        return null;
     }
   }, [activeTab, aboutData, privacyData, termsData]);
 
-  // Sync content when server data arrives or tab changes
+  const serverContent = currentDoc?.content ?? "";
+  const lastUpdatedAt = currentDoc?.updated_at;
+
+  // Sync content state when server content changes or user cancels
   useEffect(() => {
     if (!isEditing) {
       setContent(serverContent);
@@ -116,19 +113,29 @@ export default function PolicyEditor() {
   }, [serverContent, isEditing]);
 
   const handleSave = async () => {
+    if (!content.trim()) {
+      addToast("Content cannot be empty", "error");
+      return;
+    }
+
     try {
       if (activeTab === "About CrewNest") {
-        await updateAbout({ content }).unwrap();
+        await updateAbout({ content: content.trim() }).unwrap();
       } else if (activeTab === "Privacy Policy") {
-        await updatePrivacy({ content }).unwrap();
-      } else if (activeTab === "Terms& Policy") {
-        await updateTerms({ content }).unwrap();
+        await updatePrivacy({ content: content.trim() }).unwrap();
+      } else if (activeTab === "Terms & Conditions") {
+        await updateTerms({ content: content.trim() }).unwrap();
       }
       setIsEditing(false);
       addToast(`${activeTab} updated successfully`, "success");
     } catch (err: any) {
       console.error("Save policy error:", err);
-      addToast(err?.data?.message || `Failed to update ${activeTab}`, "error");
+      const msg =
+        err?.data?.message ||
+        err?.data?.detail ||
+        err?.message ||
+        `Failed to update ${activeTab}`;
+      addToast(msg, "error");
     }
   };
 
@@ -149,34 +156,38 @@ export default function PolicyEditor() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top Navigation */}
+      {/* Top Navigation Tabs */}
       <div className="flex items-center gap-6 border-b border-border mb-6 overflow-x-auto custom-scrollbar pb-1">
-        {(["About CrewNest", "Privacy Policy", "Terms& Policy"] as PolicyTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => {
-              if (isEditing) {
-                if (!confirm("You have unsaved changes. Discard them?")) return;
-                setIsEditing(false);
-              }
-              setActiveTab(tab);
-            }}
-            className={cn(
-              "pb-3 text-lg font-semibold transition-colors relative whitespace-nowrap",
-              activeTab === tab ? "text-primary" : "text-text-secondary hover:text-text-primary"
-            )}
-          >
-            {tab}
-            {activeTab === tab && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full"></div>
-            )}
-          </button>
-        ))}
+        {(["About CrewNest", "Privacy Policy", "Terms & Conditions"] as PolicyTab[]).map(
+          (tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                if (isEditing) {
+                  if (!confirm("You have unsaved changes. Discard them?")) return;
+                  setIsEditing(false);
+                }
+                setActiveTab(tab);
+              }}
+              className={cn(
+                "pb-3 text-lg font-semibold transition-colors relative whitespace-nowrap",
+                activeTab === tab
+                  ? "text-primary"
+                  : "text-text-secondary hover:text-text-primary"
+              )}
+            >
+              {tab}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
+              )}
+            </button>
+          )
+        )}
       </div>
 
       {/* Main Content Area */}
-      <div className="bg-[#EAEFF5] rounded-3xl p-6 md:p-8 flex-1 flex flex-col relative min-h-[500px]">
-        {/* Role Toggle */}
+      <div className="bg-[#EAEFF5] rounded-3xl p-6 md:p-8 flex-1 flex flex-col relative min-h-[520px]">
+        {/* Controls Row: Role Toggles & Last Updated / Actions */}
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <div className="flex items-center gap-2 bg-transparent">
             <button
@@ -203,32 +214,46 @@ export default function PolicyEditor() {
             </button>
           </div>
 
-          {/* Quick save button when editing */}
-          {isEditing && (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setContent(serverContent);
-                  setIsEditing(false);
-                }}
-                className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary bg-white rounded-xl border border-border shadow-sm transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-[#1a3060] rounded-xl shadow-md transition-colors disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Changes
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {lastUpdatedAt && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary bg-white px-3.5 py-1.5 rounded-full border border-border shadow-xs">
+                <Clock className="w-3.5 h-3.5 text-text-secondary" />
+                Last Updated:{" "}
+                {new Date(lastUpdatedAt).toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            )}
+
+            {/* Quick action buttons while editing */}
+            {isEditing && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setContent(serverContent);
+                    setIsEditing(false);
+                  }}
+                  className="px-4 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-white rounded-xl border border-border shadow-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-1.5 text-sm font-medium text-white bg-primary hover:bg-[#1a3060] rounded-xl shadow-md transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save Changes
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Editor Card */}
@@ -288,8 +313,8 @@ export default function PolicyEditor() {
             </div>
           )}
 
-          {/* Text Area */}
-          <div className="p-6 md:p-8 flex-1 min-h-[300px] overflow-y-auto">
+          {/* Text Area & Content Display */}
+          <div className="p-6 md:p-8 flex-1 min-h-[320px] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center h-full text-text-secondary py-16">
                 <Loader2 className="w-6 h-6 animate-spin mr-3 text-primary" />
@@ -301,11 +326,27 @@ export default function PolicyEditor() {
                 className="w-full h-full min-h-[350px] bg-transparent border-none outline-none resize-none text-text-primary text-base leading-relaxed font-mono"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Enter policy content..."
+                placeholder={`Enter ${activeTab.toLowerCase()} content...`}
               />
-            ) : (
+            ) : content ? (
               <div className="text-text-primary text-base leading-relaxed whitespace-pre-wrap font-normal">
                 {content}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center text-text-secondary">
+                <p className="text-base font-semibold text-text-primary mb-1">
+                  No content available for {activeTab}
+                </p>
+                <p className="text-sm text-text-secondary mb-4">
+                  Click the button below to add and publish content.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex items-center gap-2 bg-[#112349] hover:bg-[#1a3060] text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
+                >
+                  <Edit2 className="w-4 h-4" /> Add Content
+                </button>
               </div>
             )}
           </div>
@@ -336,4 +377,3 @@ export default function PolicyEditor() {
     </div>
   );
 }
-
