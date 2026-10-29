@@ -271,6 +271,12 @@ export const dashboardApi = apiSlice.injectEndpoints({
     // ─── Support Tickets ────────────────────────────────────────────────────────
     getSupportTickets: builder.query<SupportTicket[], void>({
       query: () => "v1/support/tickets/",
+      transformResponse: (response: any): SupportTicket[] => {
+        if (Array.isArray(response)) return response;
+        if (Array.isArray(response?.data)) return response.data;
+        if (Array.isArray(response?.results)) return response.results;
+        return [];
+      },
       providesTags: ["Support"],
     }),
 
@@ -280,6 +286,9 @@ export const dashboardApi = apiSlice.injectEndpoints({
         method: "PATCH",
         body: data,
       }),
+      transformResponse: (response: any): SupportTicket => {
+        return response?.data ?? response;
+      },
       invalidatesTags: ["Support"],
     }),
 
